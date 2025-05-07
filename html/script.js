@@ -31,7 +31,18 @@ const app = new Vue({
         confirmMessage: '',
         confirmCallback: null,
         moneyChart: null,
-        dutyLogs: []
+        dutyLogs: [],
+        metadata: {},
+        newMetadataKey: '',
+        newMetadataValue: '',
+        availableItems: [],
+        itemSearchTerm: '',
+        allowedItems: [],
+        newAllowedItem: {
+            name: '',
+            level: 0,
+            price: 0
+        }
     },
     computed: {
         filteredBusinesses() {
@@ -40,6 +51,14 @@ const app = new Vue({
             return this.businesses.filter(business => 
                 business.label.toLowerCase().includes(search) || 
                 business.id.toLowerCase().includes(search)
+            );
+        },
+        filteredAvailableItems() {
+            if (!this.itemSearchTerm) return this.availableItems;
+            const search = this.itemSearchTerm.toLowerCase();
+            return this.availableItems.filter(item => 
+                item.name.toLowerCase().includes(search) || 
+                (item.label && item.label.toLowerCase().includes(search))
             );
         }
     },
@@ -58,13 +77,9 @@ const app = new Vue({
             this.currentView = 'list';
         },
         selectBusiness(businessId) {
-            //console.log("Seleccionando negocio:", businessId);
             sendData('getBusinessData', { businessId }, (response) => {
-                //console.log("Respuesta recibida:", response);
                 if (response && response.success && response.data) {
                     this.showBusinessEditor(response.data);
-                } else {
-                    //console.error("Error al obtener datos del negocio:", response);
                 }
             });
         },
@@ -87,13 +102,10 @@ const app = new Vue({
         },
         
         showBusinessEditor(businessData) {
-            //console.log("Mostrando editor para:", businessData);
-            
             if (typeof businessData.grades === 'string') {
                 try {
                     businessData.grades = JSON.parse(businessData.grades);
                 } catch(e) {
-                    //console.error("Error al parsear grades:", e);
                     businessData.grades = {};
                 }
             } else if (!businessData.grades) {
@@ -104,7 +116,6 @@ const app = new Vue({
                 try {
                     businessData.npcs = JSON.parse(businessData.npcs);
                 } catch(e) {
-                    //console.error("Error al parsear npcs:", e);
                     businessData.npcs = [];
                 }
             } else if (!businessData.npcs) {
@@ -115,11 +126,34 @@ const app = new Vue({
                 try {
                     businessData.stats = JSON.parse(businessData.stats);
                 } catch(e) {
-                    //console.error("Error al parsear stats:", e);
                     businessData.stats = { duty: [], money: [] };
                 }
             } else if (!businessData.stats) {
                 businessData.stats = { duty: [], money: [] };
+            }
+            
+            if (typeof businessData.metadata === 'string') {
+                try {
+                    this.metadata = JSON.parse(businessData.metadata);
+                } catch(e) {
+                    this.metadata = {};
+                }
+            } else if (businessData.metadata) {
+                this.metadata = businessData.metadata;
+            } else {
+                this.metadata = {};
+            }
+            
+            if (typeof businessData.allowed_items === 'string') {
+                try {
+                    this.allowedItems = JSON.parse(businessData.allowed_items);
+                } catch(e) {
+                    this.allowedItems = [];
+                }
+            } else if (businessData.allowed_items) {
+                this.allowedItems = businessData.allowed_items;
+            } else {
+                this.allowedItems = [];
             }
             
             this.selectedBusiness = businessData;
@@ -127,6 +161,13 @@ const app = new Vue({
             this.currentTab = 'general';
             
             this.dutyLogs = (businessData.stats && businessData.stats.duty) ? businessData.stats.duty : [];
+            
+            sendData('getAvailableItems', {}, (response) => {
+                if (response && response.success && response.items) {
+                    this.availableItems = response.items;
+                }
+            });
+            
             this.initCharts();
         },
         closeBusiness() {
@@ -136,18 +177,6 @@ const app = new Vue({
         
         saveGeneral() {
             if (!this.selectedBusiness) return;
-            
-            /*console.log("Guardando datos generales:", {
-                businessId: this.selectedBusiness.id,
-                generalData: {
-                    label: this.selectedBusiness.label,
-                    type: this.selectedBusiness.type,
-                    level: this.selectedBusiness.level,
-                    experience: this.selectedBusiness.experience,
-                    money: this.selectedBusiness.money,
-                    open: this.selectedBusiness.open
-                }
-            }); */
             
             sendData('updateBusinessGeneral', {
                 businessId: this.selectedBusiness.id,
@@ -230,6 +259,75 @@ const app = new Vue({
                 businessId: this.selectedBusiness.id,
                 npcs: this.selectedBusiness.npcs
             });
+        },
+        
+        addMetadata() {
+            if (!this.newMetadataKey || this.newMetadataKey.trim() === '') return;
+            
+            let value = this.newMetadataValue;
+            
+            if (value === 'true') value = true;
+            else if (value === 'false') value = false;
+            else if (!isNaN(Number(value))) value = Number(value);
+            
+            Vue.set(this.metadata, this.newMetadataKey, value);
+            
+            this.newMetadataKey = '';
+            this.newMetadataValue = '';
+            
+            this.saveMetadata();
+        },
+        
+        saveMetadata() {
+            if (!this.selectedBusiness) return;
+            
+            sendData('updateBusinessMetadata', {
+                businessId: this.selectedBusiness.id,
+                metadata: this.metadata
+            });
+        },
+        
+        addAllowedItem() {
+            if (!this.newAllowedItem.name) return;
+            
+            const existingIndex = this.allowedItems.findIndex(item => item.name === this.newAllowedItem.name);
+            if (existingIndex !== -1) {
+                this.allowedItems[existingIndex] = { ...this.newAllowedItem };
+            } else {
+                this.allowedItems.push({ ...this.newAllowedItem });
+            }
+            
+            this.newAllowedItem = {
+                name: '',
+                level: 0,
+                price: 0
+            };
+            
+            this.saveAllowedItems();
+        },
+        
+        removeAllowedItem(index) {
+            this.confirmMessage = `¿Estás seguro de que quieres eliminar este item?`;
+            this.confirmCallback = () => {
+                this.allowedItems.splice(index, 1);
+                this.saveAllowedItems();
+                this.showConfirmModal = false;
+            };
+            this.showConfirmModal = true;
+        },
+        
+        saveAllowedItems() {
+            if (!this.selectedBusiness) return;
+            
+            sendData('updateBusinessAllowedItems', {
+                businessId: this.selectedBusiness.id,
+                allowedItems: this.allowedItems
+            });
+        },
+        
+        selectItemToAdd(item) {
+            this.newAllowedItem.name = item.name;
+            if (item.label) this.newAllowedItem.label = item.label;
         },
         
         initCharts() {
@@ -316,8 +414,6 @@ const app = new Vue({
             
             if (!data.action) return;
             
-            console.log("Mensaje recibido:", data.action, data);
-            
             switch (data.action) {
                 case 'openBusinessList':
                     this.showBusinessList(data.businesses);
@@ -329,6 +425,10 @@ const app = new Vue({
                     
                 case 'closeBusinessPanel':
                     this.closePanel();
+                    break;
+                    
+                case 'setAvailableItems':
+                    this.availableItems = data.items;
                     break;
             }
         });

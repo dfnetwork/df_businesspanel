@@ -73,6 +73,36 @@ function InitializeServer()
         end)
     end)
     
+    Framework.Functions.CreateCallback('df_businesspanel:server:getAvailableItems', function(source, cb)
+        local src = source
+        local Player = Framework.Functions.GetPlayer(src)
+        if not Player then return cb({success = false}) end
+        
+        local items = {}
+        
+        if Framework.Name == 'qb' then
+            local QBCore = exports['qb-core']:GetCoreObject()
+            local QBItems = QBCore.Shared.Items
+            
+            for k, v in pairs(QBItems) do
+                table.insert(items, {
+                    name = k,
+                    label = v.label
+                })
+            end
+        elseif Framework.Name == 'esx' then
+            MySQL.Async.fetchAll('SELECT name, label FROM items', {}, function(result)
+                if result then
+                    items = result
+                end
+                cb({success = true, items = items})
+            end)
+            return
+        end
+        
+        cb({success = true, items = items})
+    end)
+    
     RegisterNetEvent('df_businesspanel:server:updateBusinessGeneral', function(businessId, data)
         local src = source
         local Player = Framework.Functions.GetPlayer(src)
@@ -117,6 +147,9 @@ function InitializeServer()
             function(rowsChanged)
                 if rowsChanged > 0 then
                     TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('success.business_saved'), Config.Notifications['success'])
+                    
+                    -- Actualizar las estadísticas de dinero
+                    UpdateMoneyStats(businessId, data.money)
                 else
                     TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.db_error'), Config.Notifications['error'])
                 end
@@ -208,6 +241,90 @@ function InitializeServer()
             end
         )
     end)
+
+    RegisterNetEvent('df_businesspanel:server:updateBusinessMetadata', function(businessId, metadata)
+        local src = source
+        local Player = Framework.Functions.GetPlayer(src)
+        if not Player then return end
+        local allowed = false
+        
+        if Config.AdminGroups[Framework.Player.GetPermission(Player)] then
+            allowed = true
+        end
+        
+        if not allowed then
+            for _, identifier in pairs(GetPlayerIdentifiers(src)) do
+                if Config.AllowedIdentifiers[identifier] then
+                    allowed = true
+                    break
+                end
+            end
+        end
+        
+        if Config.AdminOnly and not allowed then
+            TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.not_authorized'), Config.Notifications['error'])
+            return
+        end
+        
+        if not businessId or not metadata or type(metadata) ~= 'table' then
+            TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.invalid_data'), Config.Notifications['error'])
+            return
+        end
+        
+        local metadataJson = json.encode(metadata)
+        MySQL.Async.execute('UPDATE '..Config.Database.Table..' SET metadata = ? WHERE id = ?', 
+            {metadataJson, businessId},
+            function(rowsChanged)
+                if rowsChanged > 0 then
+                    TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('success.business_saved'), Config.Notifications['success'])
+                else
+                    TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.db_error'), Config.Notifications['error'])
+                end
+            end
+        )
+    end)
+    
+    RegisterNetEvent('df_businesspanel:server:updateBusinessAllowedItems', function(businessId, allowedItems)
+        local src = source
+        local Player = Framework.Functions.GetPlayer(src)
+        if not Player then return end
+        local allowed = false
+        
+        if Config.AdminGroups[Framework.Player.GetPermission(Player)] then
+            allowed = true
+        end
+        
+        if not allowed then
+            for _, identifier in pairs(GetPlayerIdentifiers(src)) do
+                if Config.AllowedIdentifiers[identifier] then
+                    allowed = true
+                    break
+                end
+            end
+        end
+        
+        if Config.AdminOnly and not allowed then
+            TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.not_authorized'), Config.Notifications['error'])
+            return
+        end
+        
+        if not businessId or not allowedItems or type(allowedItems) ~= 'table' then
+            TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.invalid_data'), Config.Notifications['error'])
+            return
+        end
+        
+        local allowedItemsJson = json.encode(allowedItems)
+        MySQL.Async.execute('UPDATE '..Config.Database.Table..' SET allowed_items = ? WHERE id = ?', 
+            {allowedItemsJson, businessId},
+            function(rowsChanged)
+                if rowsChanged > 0 then
+                    TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('success.business_saved'), Config.Notifications['success'])
+                else
+                    TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('error.db_error'), Config.Notifications['error'])
+                end
+            end
+        )
+    end)
     
     RegisterNetEvent('df_businesspanel:server:updateBusinessStats', function(businessId, stats)
         local src = source
@@ -284,10 +401,15 @@ function InitializeServer()
         local npcs = json.encode({})
         local markers = json.encode({})
         local items = json.encode({})
-        local stats = json.encode({ duty = {}, money = {} })
+        local stats = json.encode({ 
+            duty = {}, 
+            money = CreateInitialMoneyStats()
+        })
+        local metadata = json.encode({})
+        local allowed_items = json.encode({})
         
         MySQL.Async.insert('INSERT INTO '..Config.Database.Table..' (id, label, type, level, experience, money, open, grades, npcs, players, markers, items, missions, vehicles, metadata, stats, allowed_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            {data.id, data.label, data.type, 0, 0, 0, 1, grades, npcs, '[]', markers, items, '[]', '[]', '[]', stats, '[]'},
+            {data.id, data.label, data.type, 0, 0, 0, 1, grades, npcs, '[]', markers, items, '[]', '[]', metadata, stats, allowed_items},
             function(id)
                 if id then
                     TriggerClientEvent(Framework.Name == 'qb' and 'QBCore:Notify' or 'esx:showNotification', src, Framework.T('success.business_saved'), Config.Notifications['success'])
@@ -338,4 +460,63 @@ function InitializeServer()
             end
         )
     end)
-end
+    
+    function CreateInitialMoneyStats()
+        local stats = {}
+        local today = os.date("%d/%m")
+        local yesterday = os.date("%d/%m", os.time() - 86400)
+        
+        for i = 10, 1, -1 do
+            local date = os.date("%d/%m", os.time() - (86400 * i))
+            table.insert(stats, {date = date, money = 0})
+        end
+        
+        table.insert(stats, {date = today, money = 0})
+        
+        return stats
+    end
+    
+    function UpdateMoneyStats(businessId, currentMoney)
+        MySQL.Async.fetchSingle('SELECT stats FROM '..Config.Database.Table..' WHERE id = ?', {businessId}, function(result)
+            if not result or not result.stats then return end
+            
+            local stats = {}
+            if type(result.stats) == 'string' then
+                stats = json.decode(result.stats)
+            else
+                stats = result.stats
+            end
+            
+            if not stats.money then stats.money = {} end
+            
+            local today = os.date("%d/%m")
+            local found = false
+            
+            for i, entry in ipairs(stats.money) do
+                if entry.date == today then
+                    entry.money = currentMoney
+                    found = true
+                    break
+                end
+            end
+            
+            if not found then
+                table.insert(stats.money, {date = today, money = currentMoney})
+                
+                if #stats.money > 11 then
+                    local newMoneyStats = {}
+                    for i = #stats.money - 10, #stats.money do
+                        table.insert(newMoneyStats, stats.money[i])
+                    end
+                    stats.money = newMoneyStats
+                end
+            end
+            
+            local statsJson = json.encode(stats)
+            MySQL.Async.execute('UPDATE '..Config.Database.Table..' SET stats = ? WHERE id = ?', 
+                {statsJson, businessId},
+                function(rowsChanged) end
+            )
+        end)
+    end
+    

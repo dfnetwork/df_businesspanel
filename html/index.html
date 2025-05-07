@@ -70,6 +70,12 @@
                 <div class="tab" :class="{ active: currentTab === 'npcs' }" @click="currentTab = 'npcs'">
                     <i class="fas fa-user"></i> NPCs
                 </div>
+                <div class="tab" :class="{ active: currentTab === 'metadata' }" @click="currentTab = 'metadata'">
+                    <i class="fas fa-cogs"></i> Metadata
+                </div>
+                <div class="tab" :class="{ active: currentTab === 'items' }" @click="currentTab = 'items'">
+                    <i class="fas fa-box"></i> Items
+                </div>
                 <div class="tab" :class="{ active: currentTab === 'stats' }" @click="currentTab = 'stats'">
                     <i class="fas fa-chart-line"></i> Estadísticas
                 </div>
@@ -189,6 +195,116 @@
                         <div class="actions">
                             <button class="add-btn" @click="addNPC">Añadir NPC</button>
                             <button class="save-btn" @click="saveNPCs">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" v-if="currentTab === 'metadata'">
+                    <div class="form">
+                        <div class="info-box">
+                            <p>Aquí puedes editar los metadatos del negocio. Se muestran como pares de clave-valor.</p>
+                        </div>
+                        <div class="metadata-list">
+                            <div class="metadata-item" v-for="(value, key) in metadata" :key="key">
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Clave</label>
+                                        <input type="text" disabled :value="key">
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Valor</label>
+                                        <input type="text" v-if="typeof value === 'string'" v-model="metadata[key]">
+                                        <input type="number" v-else-if="typeof value === 'number'" v-model.number="metadata[key]">
+                                        <select v-else-if="typeof value === 'boolean'" v-model="metadata[key]">
+                                            <option :value="true">Verdadero</option>
+                                            <option :value="false">Falso</option>
+                                        </select>
+                                        <input type="text" disabled v-else :value="JSON.stringify(value)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="new-metadata-key">Nueva Clave</label>
+                                <input type="text" id="new-metadata-key" v-model="newMetadataKey" placeholder="Nombre de la clave">
+                            </div>
+                            <div class="form-group half">
+                                <label for="new-metadata-value">Nuevo Valor</label>
+                                <input type="text" id="new-metadata-value" v-model="newMetadataValue" placeholder="Valor">
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="add-btn" @click="addMetadata">Añadir Metadato</button>
+                            <button class="save-btn" @click="saveMetadata">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" v-if="currentTab === 'items'">
+                    <div class="form">
+                        <div class="info-box">
+                            <p>Aquí puedes gestionar los items permitidos para este negocio.</p>
+                        </div>
+                        <div class="search-bar mb-20">
+                            <input type="text" v-model="itemSearchTerm" placeholder="Buscar item...">
+                        </div>
+                        <div class="items-container">
+                            <div class="items-list">
+                                <h3>Items Permitidos</h3>
+                                <div class="item-row header">
+                                    <div class="item-name">Nombre</div>
+                                    <div class="item-level">Nivel</div>
+                                    <div class="item-price">Precio</div>
+                                    <div class="item-actions">Acciones</div>
+                                </div>
+                                <div class="item-row" v-for="(item, index) in allowedItems" :key="'allowed-'+index">
+                                    <div class="item-name">{{ item.name }}</div>
+                                    <div class="item-level">{{ item.level }}</div>
+                                    <div class="item-price">{{ item.price }}</div>
+                                    <div class="item-actions">
+                                        <button class="delete-item-btn" @click="removeAllowedItem(index)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="available-items">
+                            <h3>Añadir Nuevo Item</h3>
+                            <div class="items-list">
+                                <div class="item-row" v-for="item in filteredAvailableItems" :key="'available-'+item.name">
+                                    <div class="item-name">{{ item.name }}</div>
+                                    <div class="item-name">{{ item.label || '' }}</div>
+                                    <div class="item-actions">
+                                        <button class="add-item-btn" @click="selectItemToAdd(item)">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="new-item-form">
+                            <h3>Configurar Item</h3>
+                            <div class="form-row">
+                                <div class="form-group third">
+                                    <label for="item-name">Nombre</label>
+                                    <input type="text" id="item-name" v-model="newAllowedItem.name" placeholder="Nombre del item">
+                                </div>
+                                <div class="form-group third">
+                                    <label for="item-level">Nivel</label>
+                                    <input type="number" id="item-level" v-model.number="newAllowedItem.level" min="0">
+                                </div>
+                                <div class="form-group third">
+                                    <label for="item-price">Precio</label>
+                                    <input type="number" id="item-price" v-model.number="newAllowedItem.price" min="0">
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <button class="add-btn" @click="addAllowedItem">Añadir Item</button>
+                            </div>
                         </div>
                     </div>
                 </div>
