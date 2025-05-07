@@ -1,9 +1,15 @@
 fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
-description 'DF Business Panel (Multiframework QBCore & ESX)'
-author 'DF Network (Modified by Marco3222)'
-version '1.0.0'
+description 'DF Business Panel for Origen_Masterjob (Multiframework QBCore & ESX)'
+author 'DF Network & Marco3222'
+version '1.1.0'
+
+-----------------------------------------------------------------
+-- FEEL FREE TO MODIFY, EDIT, UPDATE, AND IMPROVE THIS SCRIPT  --
+--          ITS SOLE PURPOSE IS TO HELP IMPROVE                --  
+-- THE BUSINESS MANAGEMENT EXPERIENCE WITHIN ORIGEN_MASTERJOB. --
+-----------------------------------------------------------------
 
 shared_scripts {
     'config.lua',
