@@ -639,7 +639,6 @@ body {
     opacity: 0;
 }
 
-/* Nuevos estilos para la sección de metadata */
 .mb-20 {
     margin-bottom: 20px;
 }
@@ -677,7 +676,6 @@ body {
     flex: 1;
 }
 
-/* Estilos para la sección de items */
 .items-container {
     display: flex;
     flex-direction: column;
