@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DF Business Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="business-list" class="panel" v-if="currentView === 'list'">
+            <div class="panel-header">
+                <h1>Panel de Negocios</h1>
+                <button class="close-btn" @click="closePanel"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="panel-content">
+                <div class="search-bar">
+                    <input type="text" v-model="searchTerm" placeholder="Buscar negocio...">
+                    <button class="new-btn" @click="showNewBusinessForm">Nuevo Negocio</button>
+                </div>
+                <div class="business-list">
+                    <div class="business-item" v-for="business in filteredBusinesses" :key="business.id" @click="selectBusiness(business.id)">
+                        <div class="business-name">{{ business.label }}</div>
+                        <div class="business-id">ID: {{ business.id }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="new-business-form" class="panel" v-if="currentView === 'new'">
+            <div class="panel-header">
+                <h1>Nuevo Negocio</h1>
+                <button class="close-btn" @click="currentView = 'list'"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="panel-content">
+                <div class="form-group">
+                    <label for="business-id">ID del Negocio</label>
+                    <input type="text" id="business-id" v-model="newBusiness.id" placeholder="Ejemplo: mechanic_bennys">
+                </div>
+                <div class="form-group">
+                    <label for="business-name">Nombre del Negocio</label>
+                    <input type="text" id="business-name" v-model="newBusiness.label" placeholder="Ejemplo: Benny's Mechanic">
+                </div>
+                <div class="form-group">
+                    <label for="business-type">Tipo de Negocio</label>
+                    <select id="business-type" v-model="newBusiness.type">
+                        <option v-for="type in businessTypes" :value="type">{{ type }}</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button class="cancel-btn" @click="currentView = 'list'">Cancelar</button>
+                    <button class="save-btn" @click="createBusiness">Crear Negocio</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="business-editor" class="panel" v-if="currentView === 'editor' && selectedBusiness">
+            <div class="panel-header">
+                <h1>{{ selectedBusiness.label }}</h1>
+                <button class="close-btn" @click="closeBusiness"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="panel-tabs">
+                <div class="tab" :class="{ active: currentTab === 'general' }" @click="currentTab = 'general'">
+                    <i class="fas fa-info-circle"></i> General
+                </div>
+                <div class="tab" :class="{ active: currentTab === 'grades' }" @click="currentTab = 'grades'">
+                    <i class="fas fa-user-tag"></i> Rangos
+                </div>
+                <div class="tab" :class="{ active: currentTab === 'npcs' }" @click="currentTab = 'npcs'">
+                    <i class="fas fa-user"></i> NPCs
+                </div>
+                <div class="tab" :class="{ active: currentTab === 'stats' }" @click="currentTab = 'stats'">
+                    <i class="fas fa-chart-line"></i> Estadísticas
+                </div>
+                <div class="tab danger" @click="confirmDelete">
+                    <i class="fas fa-trash"></i> Eliminar
+                </div>
+            </div>
+            <div class="panel-content">
+                <div class="tab-content" v-if="currentTab === 'general'">
+                    <div class="form">
+                        <div class="form-group">
+                            <label for="edit-business-name">Nombre del Negocio</label>
+                            <input type="text" id="edit-business-name" v-model="selectedBusiness.label">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-business-type">Tipo de Negocio</label>
+                            <select id="edit-business-type" v-model="selectedBusiness.type">
+                                <option v-for="type in businessTypes" :value="type">{{ type }}</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="edit-business-level">Nivel</label>
+                                <input type="number" id="edit-business-level" v-model.number="selectedBusiness.level">
+                            </div>
+                            <div class="form-group half">
+                                <label for="edit-business-experience">Experiencia</label>
+                                <input type="number" id="edit-business-experience" v-model.number="selectedBusiness.experience">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="edit-business-money">Dinero</label>
+                                <input type="number" id="edit-business-money" v-model.number="selectedBusiness.money">
+                            </div>
+                            <div class="form-group half">
+                                <label for="edit-business-open">Estado</label>
+                                <select id="edit-business-open" v-model.number="selectedBusiness.open">
+                                    <option :value="1">Abierto</option>
+                                    <option :value="0">Cerrado</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="save-btn" @click="saveGeneral">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" v-if="currentTab === 'grades'">
+                    <div class="form">
+                        <div class="grades-list">
+                            <div class="grade-item" v-for="(grade, key) in selectedBusiness.grades" :key="key">
+                                <div class="grade-header">
+                                    <span>Rango {{ key }}</span>
+                                    <button class="delete-btn" @click="deleteGrade(key)" v-if="Object.keys(selectedBusiness.grades).length > 1">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <label :for="'grade-label-'+key">Etiqueta</label>
+                                    <input type="text" :id="'grade-label-'+key" v-model="grade.label">
+                                </div>
+                                <div class="form-group">
+                                    <label :for="'grade-pay-'+key">Salario</label>
+                                    <input type="number" :id="'grade-pay-'+key" v-model.number="grade.pay">
+                                </div>
+                                <div class="form-group checkbox">
+                                    <input type="checkbox" :id="'grade-boss-'+key" v-model="grade.boss">
+                                    <label :for="'grade-boss-'+key">¿Es jefe?</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="add-btn" @click="addGrade">Añadir Rango</button>
+                            <button class="save-btn" @click="saveGrades">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" v-if="currentTab === 'npcs'">
+                    <div class="form">
+                        <div class="npcs-list">
+                            <div class="npc-item" v-for="(npc, index) in selectedBusiness.npcs" :key="index">
+                                <div class="npc-header">
+                                    <span>{{ npc.name || 'NPC ' + (index + 1) }}</span>
+                                    <button class="delete-btn" @click="deleteNPC(index)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <label :for="'npc-name-'+index">Nombre</label>
+                                    <input type="text" :id="'npc-name-'+index" v-model="npc.name">
+                                </div>
+                                <div class="form-group">
+                                    <label :for="'npc-model-'+index">Modelo</label>
+                                    <input type="text" :id="'npc-model-'+index" v-model="npc.model">
+                                </div>
+                                <div class="form-group">
+                                    <label>Coordenadas</label>
+                                    <div class="coords-group">
+                                        <input type="number" step="0.01" placeholder="X" v-model.number="npc.coords.x">
+                                        <input type="number" step="0.01" placeholder="Y" v-model.number="npc.coords.y">
+                                        <input type="number" step="0.01" placeholder="Z" v-model.number="npc.coords.z">
+                                        <input type="number" step="0.01" placeholder="W" v-model.number="npc.coords.w">
+                                    </div>
+                                </div>
+                                <div class="form-group checkbox">
+                                    <input type="checkbox" :id="'npc-main-'+index" v-model="npc.main">
+                                    <label :for="'npc-main-'+index">¿Es principal?</label>
+                                </div>
+                                <div class="form-group">
+                                    <button class="position-btn" @click="setNPCPosition(index)">Mi Posición</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="add-btn" @click="addNPC">Añadir NPC</button>
+                            <button class="save-btn" @click="saveNPCs">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" v-if="currentTab === 'stats'">
+                    <div class="stats-container">
+                        <div class="stats-box">
+                            <h3>Estadísticas de Dinero</h3>
+                            <canvas id="moneyChart"></canvas>
+                        </div>
+                        
+                        <div class="stats-box">
+                            <h3>Registro de Servicio</h3>
+                            <div class="duty-log">
+                                <div class="duty-item" v-for="(dutyLog, index) in dutyLogs" :key="index">
+                                    <div class="duty-name">{{ dutyLog.name }}</div>
+                                    <div class="duty-info">
+                                        <span>{{ formatDate(dutyLog.hour) }}</span>
+                                        <span :class="dutyLog.duty ? 'duty-on' : 'duty-off'">
+                                            {{ dutyLog.duty ? 'Entró de servicio' : 'Salió de servicio' }}
+                                        </span>
+                                        <span>Rango: {{ dutyLog.grade }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="confirm-modal" class="modal" v-if="showConfirmModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Confirmar Acción</h2>
+                </div>
+                <div class="modal-body">
+                    <p>{{ confirmMessage }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" @click="showConfirmModal = false">Cancelar</button>
+                    <button class="confirm-btn" @click="confirmAction">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.14/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
