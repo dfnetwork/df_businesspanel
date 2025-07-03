@@ -34,7 +34,7 @@ Ya seas **principiante** o **experto**, aquí tienes un espacio para crecer y ap
 ## 🛠 Tecnologías populares en la comunidad
 
 <div align="center">
-  <img src="https://skillicons.dev/icons?i=js,ts,nodejs,react,nextjs,nestjs,mysql,mongodb,git,figma,lua" />
+  <img src="https://skillicons.dev/icons?i=js,ts,nodejs,react,nextjs,nestjs,mysql,mongodb,git,figma,lua,c,c#" />
 </div>
 
 ---
