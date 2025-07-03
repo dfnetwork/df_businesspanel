@@ -19,12 +19,6 @@ RegisterNUICallback('getBusinessData', function(data, cb)
     end, data.businessId)
 end)
 
-RegisterNUICallback('getAvailableItems', function(data, cb)
-    Framework.Functions.TriggerCallback('df_businesspanel:server:getAvailableItems', function(response)
-        cb(response)
-    end)
-end)
-
 RegisterNUICallback('updateBusinessGeneral', function(data, cb)
     TriggerServerEvent('df_businesspanel:server:updateBusinessGeneral', data.businessId, data.generalData)
     cb('ok')
@@ -37,16 +31,6 @@ end)
 
 RegisterNUICallback('updateBusinessNPCs', function(data, cb)
     TriggerServerEvent('df_businesspanel:server:updateBusinessNPCs', data.businessId, data.npcs)
-    cb('ok')
-end)
-
-RegisterNUICallback('updateBusinessMetadata', function(data, cb)
-    TriggerServerEvent('df_businesspanel:server:updateBusinessMetadata', data.businessId, data.metadata)
-    cb('ok')
-end)
-
-RegisterNUICallback('updateBusinessAllowedItems', function(data, cb)
-    TriggerServerEvent('df_businesspanel:server:updateBusinessAllowedItems', data.businessId, data.allowedItems)
     cb('ok')
 end)
 
